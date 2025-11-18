@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List
 
 # Import parser
-from parser import CairoParser, ContractInfo
+from cairo_parser.parser import CairoParser, ContractInfo
 
 
 def find_cairo_files(paths: List[str]) -> List[Path]:

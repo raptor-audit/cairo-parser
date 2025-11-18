@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cairo-parser"
+version = "0.1.1"
+description = "Cairo smart contract parser with assembler-style GOT/PLT symbol resolution (regex-based, no compiler required)"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "GPL-3.0-only"}
+authors = [
+    {name = "Raptor Audit", email = "info@raptor-audit.com"}
+]
+keywords = ["cairo", "starknet", "parser", "smart-contracts", "blockchain", "security", "audit"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Security",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = []
+
+[project.optional-dependencies]
+yaml = ["pyyaml"]
+dev = ["pytest", "black", "mypy"]
+
+[project.urls]
+Homepage = "https://github.com/raptor-audit/cairo-parser"
+Repository = "https://github.com/raptor-audit/cairo-parser"
+Issues = "https://github.com/raptor-audit/cairo-parser/issues"
+
+[project.scripts]
+cairo-parser = "cairo_parser.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["cairo_parser*"]
+
+[tool.setuptools.package-data]
+cairo_parser = ["*.md", "*.json"]
