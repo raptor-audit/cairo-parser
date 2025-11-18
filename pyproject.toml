@@ -4,15 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cairo-parser"
-version = "0.1.1"
+version = "0.1.2"
 description = "Cairo smart contract parser with assembler-style GOT/PLT symbol resolution (regex-based, no compiler required)"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "GPL-3.0-only"
-authors = [
-    {name = "Raptor Audit", email = "info@raptor-audit.com"}
+authors = [{ name = "Calvin Kimani", email = "calvinkimani475@gmail.com" }]
+keywords = [
+    "cairo",
+    "starknet",
+    "parser",
+    "smart-contracts",
+    "blockchain",
+    "security",
+    "audit",
 ]
-keywords = ["cairo", "starknet", "parser", "smart-contracts", "blockchain", "security", "audit"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",

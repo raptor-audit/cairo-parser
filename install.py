@@ -11,7 +11,7 @@ from pathlib import Path
 TOOL_INFO = {
     "name": "cairo-parser",
     "description": "Cairo smart contract parser with assembler-style GOT/PLT symbol resolution (regex-based, no compiler required)",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "type": "library-cli",
     "provides": ["CairoParser", "ContractInfo", "FunctionInfo", "StorageVarInfo", "EventInfo"],
     "cli_command": "python -m cairo_parser",
