@@ -1,2 +1,4 @@
 *pycache*/
 *pyc*
+dist
+*.egg-info
