@@ -10,8 +10,8 @@ from pathlib import Path
 
 TOOL_INFO = {
     "name": "cairo-parser",
-    "description": "Cairo smart contract parser with assembler-style GOT/PLT symbol resolution (regex-based, no compiler required)",
-    "version": "0.1.2",
+    "description": "Cairo smart contract parser with assembler-style GOT/PLT symbol resolution",
+    "version": "0.2.0",
     "type": "library-cli",
     "provides": ["CairoParser", "ContractInfo", "FunctionInfo", "StorageVarInfo", "EventInfo"],
     "cli_command": "python -m cairo_parser",

@@ -7,7 +7,7 @@ No compiler required - uses regex pattern matching for both Cairo 0 and Cairo 1.
 Includes control flow and dataflow analysis capabilities.
 """
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 from cairo_parser.parser import (
     CairoParser,
