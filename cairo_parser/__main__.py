@@ -13,6 +13,14 @@ from typing import List
 # Import parser
 from cairo_parser.parser import CairoParser, ContractInfo
 
+# Import analyzer
+from cairo_parser.analysis.analyzer import CairoAnalyzer
+from cairo_parser.analysis.serialization import (
+    save_analysis,
+    format_summary_text,
+    format_warnings_text,
+)
+
 
 def find_cairo_files(paths: List[str]) -> List[Path]:
     """Find all Cairo files in given paths, excluding test files."""
@@ -194,6 +202,15 @@ Examples:
                         help='Include detailed stub report in output')
     parser.add_argument('--quiet', action='store_true', help='Suppress progress messages')
 
+    # Analysis options
+    parser.add_argument('--analyze', action='store_true',
+                        help='Perform control flow and dataflow analysis')
+    parser.add_argument('--analysis-output', help='Output file for analysis results (JSON/YAML)')
+    parser.add_argument('--analysis-format', choices=['json', 'yaml'],
+                        default='json', help='Analysis output format (default: json)')
+    parser.add_argument('--show-warnings', action='store_true',
+                        help='Display analysis warnings in summary output')
+
     args = parser.parse_args()
 
     # Find Cairo files
@@ -251,6 +268,31 @@ Examples:
                     return 1
                 continue
 
+    # Perform CFG and dataflow analysis if requested
+    analysis_results = None
+    if args.analyze:
+        if not args.quiet:
+            print(f"\n[Analysis] Performing control flow and dataflow analysis...")
+
+        analyzer = CairoAnalyzer()
+        analysis_results = analyzer.analyze_contracts(all_contracts)
+
+        if not args.quiet:
+            summary = analyzer.get_summary_stats(analysis_results)
+            print(f"[Analysis] Analyzed {summary['functions_with_body']} functions")
+            print(f"[Analysis] Found {summary['total_warnings']} warnings")
+
+        # Save analysis results if output file specified
+        if args.analysis_output:
+            output_path = Path(args.analysis_output)
+            save_analysis(
+                [r.to_dict() for r in analysis_results],
+                output_path,
+                format=args.analysis_format
+            )
+            if not args.quiet:
+                print(f"[Analysis] Results written to {args.analysis_output}")
+
     # Generate output
     if args.format == 'summary':
         output_lines = []
@@ -274,6 +316,19 @@ Examples:
                 for module in stub_report['stubbed_modules']:
                     output_lines.append(f"  - {module}")
 
+        # Add analysis warnings if requested
+        if args.show_warnings and analysis_results:
+            output_lines.append(f"\n{'='*60}")
+            output_lines.append(f"Analysis Warnings")
+            output_lines.append(f"{'='*60}")
+            warnings_text = format_warnings_text([r.to_dict() for r in analysis_results])
+            output_lines.append(warnings_text)
+
+            # Add summary stats
+            analyzer = CairoAnalyzer()
+            summary = analyzer.get_summary_stats(analysis_results)
+            output_lines.append(f"\n{format_summary_text(summary)}")
+
         output = '\n'.join(output_lines)
 
     elif args.format == 'json':
@@ -291,6 +346,12 @@ Examples:
 
         if args.stub_report:
             output_data['stub_report'] = cairo_parser.get_stub_report()
+
+        # Add analysis results if available
+        if analysis_results:
+            output_data['analysis'] = [r.to_dict() for r in analysis_results]
+            analyzer = CairoAnalyzer()
+            output_data['analysis_summary'] = analyzer.get_summary_stats(analysis_results)
 
         output = json.dumps(output_data, indent=2)
 
@@ -315,6 +376,12 @@ Examples:
 
         if args.stub_report:
             output_data['stub_report'] = cairo_parser.get_stub_report()
+
+        # Add analysis results if available
+        if analysis_results:
+            output_data['analysis'] = [r.to_dict() for r in analysis_results]
+            analyzer = CairoAnalyzer()
+            output_data['analysis_summary'] = analyzer.get_summary_stats(analysis_results)
 
         output = yaml.dump(output_data, default_flow_style=False, sort_keys=False)
 

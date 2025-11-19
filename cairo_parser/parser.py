@@ -26,6 +26,11 @@ class FunctionInfo:
     line: int
     is_stub: bool = False  # From stubbed module
 
+    # Function body for control flow and dataflow analysis
+    body_start_line: Optional[int] = None
+    body_end_line: Optional[int] = None
+    body_text: Optional[str] = None  # Raw function body as string
+
 
 @dataclass
 class StorageVarInfo:
@@ -761,6 +766,12 @@ class CairoParser:
             elif current_contract and 'fn ' in stripped:
                 func_info = self._parse_function(stripped, line_num)
                 if func_info:
+                    # Extract function body for control flow analysis
+                    body_text, body_start, body_end = self._extract_function_body(lines, line_num)
+                    if body_text is not None:
+                        func_info.body_text = body_text
+                        func_info.body_start_line = body_start
+                        func_info.body_end_line = body_end
                     current_contract.functions.append(func_info)
 
             # Events
@@ -775,6 +786,59 @@ class CairoParser:
                         break
 
         return contracts
+
+    def _extract_function_body(self, source_lines: List[str], start_line: int) -> tuple[Optional[str], Optional[int], Optional[int]]:
+        """
+        Extract function body from source code using brace matching.
+
+        Args:
+            source_lines: List of all source code lines
+            start_line: Line number where function declaration starts (1-indexed)
+
+        Returns:
+            Tuple of (body_text, body_start_line, body_end_line)
+            Returns (None, None, None) if body cannot be extracted
+        """
+        if start_line < 1 or start_line > len(source_lines):
+            return None, None, None
+
+        brace_count = 0
+        body_lines = []
+        body_start = None
+        body_end = None
+        found_opening_brace = False
+
+        # Start from the function declaration line
+        for i in range(start_line - 1, len(source_lines)):
+            line = source_lines[i]
+
+            # Track braces
+            for char in line:
+                if char == '{':
+                    if not found_opening_brace:
+                        found_opening_brace = True
+                        body_start = i + 1  # 1-indexed
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+
+            # Collect body lines after finding opening brace
+            if found_opening_brace:
+                body_lines.append(line)
+
+            # Check if we've closed the function body
+            if found_opening_brace and brace_count == 0:
+                body_end = i + 1  # 1-indexed
+                break
+
+        # Return None if we never found a complete body
+        if not found_opening_brace or body_end is None:
+            return None, None, None
+
+        # Join the body lines
+        body_text = '\n'.join(body_lines)
+
+        return body_text, body_start, body_end
 
     def _parse_function(self, line: str, line_num: int) -> Optional[FunctionInfo]:
         """Parse a Cairo function declaration."""

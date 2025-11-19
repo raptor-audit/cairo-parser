@@ -18,6 +18,9 @@ Cairo Parser uses a **three-pass assembler-style approach** to parse Cairo contr
 - ✅ **Smart stubbing** - stubs only external dependencies (stdlib, runtime)
 - ✅ **Cairo 0 & 1 support** - handles both syntax versions
 - ✅ **Test file exclusion** - automatically skips test files
+- ✅ **Control Flow Analysis** - builds control flow graphs (CFG) for functions
+- ✅ **Dataflow Analysis** - tracks def-use chains, storage access, and external calls
+- ✅ **Security Analysis** - detects uninitialized variables and unused definitions
 
 ## Usage
 
@@ -76,6 +79,21 @@ python -m cairo_parser contracts/ --format json --stub-report -o output.json
 **Fail on missing imports (no stubbing):**
 ```bash
 python -m cairo_parser contracts/ --no-stub
+```
+
+**Control Flow and Dataflow Analysis:**
+```bash
+# Perform analysis and save results
+python -m cairo_parser contracts/ --analyze --analysis-output analysis.json
+
+# Show analysis warnings in summary output
+python -m cairo_parser contracts/ --analyze --show-warnings
+
+# Full analysis with both parser and analysis output
+python -m cairo_parser contracts/ --analyze \
+  --format json -o contracts.json \
+  --analysis-output analysis.json \
+  --analysis-format yaml
 ```
 
 ### Via Raptor
@@ -341,6 +359,146 @@ for name, contract in contracts.items():
             print(f"Stubbed: {imp.module_path}")
 ```
 
+### Control Flow and Dataflow Analysis
+
+The parser includes a powerful static analysis engine that performs:
+- **Control Flow Graph (CFG)** construction
+- **Def-Use chain** analysis
+- **Storage access** tracking
+- **External call** detection
+- **Uninitialized variable** detection
+- **Dead code** detection
+
+**Basic Analysis:**
+```python
+from cairo_parser import CairoParser, CairoAnalyzer
+
+# Parse contracts
+parser = CairoParser()
+contracts = parser.parse_directories([Path('contracts/')])
+
+# Analyze contracts
+analyzer = CairoAnalyzer()
+results = analyzer.analyze_contracts(contracts)
+
+# Get summary statistics
+summary = analyzer.get_summary_stats(results)
+print(f"Analyzed {summary['functions_with_body']} functions")
+print(f"Found {summary['total_warnings']} warnings")
+print(f"Storage reads: {summary['total_storage_reads']}")
+print(f"Storage writes: {summary['total_storage_writes']}")
+print(f"External calls: {summary['total_external_calls']}")
+```
+
+**Detailed Function Analysis:**
+```python
+# Analyze specific function
+for result in results:
+    for func in result.functions:
+        if func.has_body:
+            # Access CFG
+            cfg = func.cfg
+            print(f"Function {func.function_name}:")
+            print(f"  CFG nodes: {len(cfg['nodes'])}")
+            print(f"  Entry: {cfg['entry_node']}")
+            print(f"  Exits: {cfg['exit_nodes']}")
+
+            # Access dataflow results
+            dataflow = func.dataflow
+            print(f"  Def-use chains: {len(dataflow['def_use_chains'])}")
+            print(f"  Storage accesses: {len(dataflow['storage_accesses'])}")
+            print(f"  External calls: {len(dataflow['external_calls'])}")
+
+            # Check warnings
+            for warning in func.warnings:
+                print(f"  Warning: {warning['message']}")
+```
+
+**CFG Visualization:**
+```python
+from cairo_parser.analysis import CFGBuilder, StatementParser
+
+# Parse function body
+stmt_parser = StatementParser()
+statements = stmt_parser.parse(function.body_text, function.body_start_line)
+
+# Build CFG
+cfg_builder = CFGBuilder()
+cfg = cfg_builder.build(function.name, statements)
+
+# Access CFG nodes and edges
+for node in cfg.nodes:
+    print(f"Node {node.id} ({node.node_type.value}):")
+    if node.statement:
+        print(f"  Statement: {node.statement.raw_text}")
+    print(f"  Successors: {node.successors}")
+    print(f"  Predecessors: {node.predecessors}")
+
+# Compute dominators
+dominators = cfg_builder.compute_dominators()
+for node_id, dom_set in dominators.items():
+    print(f"Node {node_id} dominated by: {dom_set}")
+
+# Find all execution paths
+paths = cfg_builder.find_all_paths(max_paths=100)
+print(f"Found {len(paths)} execution paths")
+```
+
+**Dataflow Analysis:**
+```python
+from cairo_parser.analysis import DataflowAnalyzer
+
+# Create dataflow analyzer
+dataflow_analyzer = DataflowAnalyzer(cfg)
+
+# Analyze def-use chains
+def_use_chains = dataflow_analyzer.analyze_def_use_chains()
+for chain in def_use_chains:
+    var = chain['variable']
+    defs = chain['definitions']
+    uses = chain['uses']
+    print(f"Variable '{var}': defined at nodes {defs}, used at nodes {uses}")
+
+# Track storage access
+storage_accesses = dataflow_analyzer.analyze_storage_access()
+for access in storage_accesses:
+    print(f"{access['access_type'].upper()}: {access['storage_var']} at line {access['line']}")
+
+# Find external calls
+external_calls = dataflow_analyzer.analyze_external_calls()
+for call in external_calls:
+    print(f"External call: {call['function_name']}({', '.join(call['arguments'])})")
+
+# Detect potential issues
+uninit_vars = dataflow_analyzer.find_uninitialized_variables()
+for warning in uninit_vars:
+    print(f"Warning: {warning['message']} at line {warning['line']}")
+
+unused_defs = dataflow_analyzer.find_unused_definitions()
+for warning in unused_defs:
+    print(f"Warning: {warning['message']}")
+```
+
+**Saving Analysis Results:**
+```python
+from cairo_parser.analysis.serialization import save_analysis
+
+# Save as JSON
+save_analysis(
+    [r.to_dict() for r in results],
+    Path('analysis.json'),
+    format='json',
+    pretty=True
+)
+
+# Save as YAML
+save_analysis(
+    [r.to_dict() for r in results],
+    Path('analysis.yaml'),
+    format='yaml'
+)
+```
+
 ### Integration with Analysis Tools
 
 ```python
@@ -348,14 +506,19 @@ for name, contract in contracts.items():
 contracts = parser.parse_directories([Path('contracts/')])
 
 # Run analysis (even with stubs)
+analyzer = CairoAnalyzer()
 for name, contract in contracts.items():
-    for func in contract.functions:
-        if func.is_stub:
-            # Handle stubbed functions differently
-            print(f"Skipping analysis of stubbed function: {func.name}")
-        else:
-            # Analyze real functions
-            analyze_function(func)
+    if not contract.is_stub:
+        result = analyzer.analyze_contract(contract)
+
+        for func_result in result.functions:
+            if func_result.has_body:
+                # Analyze real functions
+                print(f"Analyzing {func_result.function_name}")
+                # ... use CFG and dataflow results
+            else:
+                # Skip stubbed or bodyless functions
+                print(f"Skipping {func_result.function_name} (no body)")
 ```
 
 ## Key Advantages
@@ -377,6 +540,12 @@ for name, contract in contracts.items():
 ## Files
 
 - `parser.py` - Core Cairo parser with GOT/PLT symbol resolution
+- `analysis/` - Control flow and dataflow analysis modules
+  - `analyzer.py` - Main analysis orchestrator
+  - `cfg.py` - Control flow graph builder
+  - `dataflow.py` - Dataflow analysis (def-use chains, storage tracking)
+  - `statements.py` - Statement parser for function bodies
+  - `serialization.py` - JSON/YAML output support
 - `install.py` - Plugin installation and registration
 - `__init__.py` - Package initialization
 - `__main__.py` - CLI interface
